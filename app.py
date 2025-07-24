@@ -143,184 +143,219 @@ if ticker:
                     fig_boundary.add_hline(y=strike_price, line_dash="dash", line_color="red", annotation_text="Strike Price")
                     fig_boundary.update_layout(title="Exercise Boundary Over Time", xaxis_title="Time (Years)", yaxis_title="Price")
                     st.plotly_chart(fig_boundary, use_container_width=True)
+                    
+                #Collapsible Learn More Panel with Dynamic Insights
+                with st.expander("Learn More: Option Pricing, Greeks & Strategies"):
+                    st.markdown("### American Options Overview")
+                    st.write(
+                        "American options can be exercised anytime before expiry, making them more flexible than European options. "
+                        "This flexibility requires advanced pricing models like Monte Carlo (LSM), Binomial Trees, or PDE solvers."
+                    )
 
-# --- Collapsible Learn More Panel with Dynamic Insights ---
-with st.expander("Learn More: Option Pricing, Greeks & Strategies"):
-    st.markdown("### American Options Overview")
-    st.write(
-        "American options can be exercised anytime before expiry, making them more flexible than European options. "
-        "This flexibility requires advanced pricing models like Monte Carlo (LSM), Binomial Trees, or PDE solvers."
-    )
+                    # --- Dynamic Payoff Graph ---
+                    st.markdown("### Payoff Diagram (Your Selection)")
+                    S_range = np.linspace(0.5 * spot_price, 1.5 * spot_price, 100)
 
-    # --- Dynamic Payoff Graph ---
-    st.markdown("### Payoff Diagram (Your Selection)")
-    S_range = np.linspace(0.5 * spot_price, 1.5 * spot_price, 100)
+                    # Basic payoff calculation
+                    if option_type == "call":
+                        payoff = np.maximum(S_range - strike_price, 0)
+                        breakeven = strike_price + mid_market if not np.isnan(mid_market) else None
+                    else:
+                        payoff = np.maximum(strike_price - S_range, 0)
+                        breakeven = strike_price - mid_market if not np.isnan(mid_market) else None
 
-    # Basic payoff calculation
-    if option_type == "call":
-        payoff = np.maximum(S_range - strike_price, 0)
-        breakeven = strike_price + mid_market if not np.isnan(mid_market) else None
-    else:
-        payoff = np.maximum(strike_price - S_range, 0)
-        breakeven = strike_price - mid_market if not np.isnan(mid_market) else None
+                    # Adjust for buy/sell positions
+                    if position_type == "sell":
+                        payoff = -payoff
+                        if breakeven is not None:
+                            breakeven = strike_price - mid_market if option_type == "call" else strike_price + mid_market
 
-    # Adjust for buy/sell positions
-    if position_type == "sell":
-        payoff = -payoff
-        if breakeven is not None:
-            breakeven = strike_price - mid_market if option_type == "call" else strike_price + mid_market
+                    # Plot payoff diagram
+                    payoff_fig = go.Figure()
 
-    # Plot payoff diagram
-    payoff_fig = go.Figure()
-    
-    #Payoff Curve
-    payoff_fig.add_trace(go.Scatter(x=S_range, y=payoff,
-                                    mode ="lines", name="Payoff",
-                                    line=dict(color="green", width=2)
-    ))
+                    # Payoff Curve
+                    payoff_fig.add_trace(go.Scatter(
+                        x=S_range, y=payoff,
+                        mode="lines", name="Payoff",
+                        line=dict(color="green", width=2)
+                    ))
 
-    #Strike Line
-    payoff_fig.add_vline(
-        x=strike_price, line_dash="dash", line_color="red",annotation_text="Strike"
-    )
+                    # Strike Line
+                    payoff_fig.add_vline(
+                        x=strike_price, line_dash="dash", line_color="red", annotation_text="Strike"
+                    )
 
-    #Current spot price marker
-    payoff_fig.add_vline(
-        x=spot_price, line_dash="dot", line_color="blue",
-        annotation_text="Current Spot Price"
-    )
+                    # Current spot price marker
+                    payoff_fig.add_vline(
+                        x=spot_price, line_dash="dot", line_color="blue",
+                        annotation_text="Current Spot Price"
+                    )
 
-    #BE Line
-    if breakeven:
-        payoff_fig.add_vline(
-            x=breakeven, line_dash="dot", line_color="orange",
-            annotation_text="Breakeven"
-        )
-    #Highlight current P/L
-    current_pl = 0
-    if option_type == "call":
-        current_pl = max(spot_price - strike_price,0)
-    else:
-        current_pl = max(strike_price - spot_price,0)
-    
-    if position_type == "sell":
-        current_pl = -current_pl
-    payoff_fig.add_annotation(
-        x=spot_price, y=current_pl,
-        text=f"Current P&L: {current_pl:.2f}",
-        showarrow=True, arrowhead=2, arrowcolor="blue"
-    )
-    
-    payoff_fig.update_layout(
-        title="Option Payoff at Expiry (With BE & Current P&L)",
-        xaxis_title="Underlying Price",
-        yaxis_title="P&L"
-    )
-    st.plotly_chart(payoff_fig, use_container_width=True)
+                    # Breakeven Line
+                    if breakeven:
+                        payoff_fig.add_vline(
+                            x=breakeven, line_dash="dot", line_color="orange",
+                            annotation_text="Breakeven"
+                        )
 
-    # --- Probability of Profit (POP) Calculation using Monte Carlo ---
-st.markdown("### Probability of Profit (POP)")
+                    # Highlight current P/L
+                    current_pl = 0
+                    if option_type == "call":
+                        current_pl = max(spot_price - strike_price, 0)
+                    else:
+                        current_pl = max(strike_price - spot_price, 0)
 
-if paths is not None:
-    terminal_prices = paths[-1]  # last timestep of all simulated paths
+                    if position_type == "sell":
+                        current_pl = -current_pl
 
-    # Calculate payoff at expiry
-    if option_type == "call":
-        payoffs = np.maximum(terminal_prices - strike_price, 0)
-    else:
-        payoffs = np.maximum(strike_price - terminal_prices, 0)
+                    payoff_fig.add_annotation(
+                        x=spot_price, y=current_pl,
+                        text=f"Current P&L: {current_pl:.2f}",
+                        showarrow=True, arrowhead=2, arrowcolor="blue"
+                    )
 
-    # Adjust for position (sell = negative P/L)
-    if position_type == "sell":
-        payoffs = -payoffs
+                    payoff_fig.update_layout(
+                        title="Option Payoff at Expiry (With BE & Current P&L)",
+                        xaxis_title="Underlying Price",
+                        yaxis_title="P&L"
+                    )
+                    st.plotly_chart(payoff_fig, use_container_width=True)
 
-    # Subtract mid_market premium if buying
-    if not np.isnan(mid_market):
-        if position_type == "buy":
-            payoffs -= mid_market
-        else:
-            payoffs += mid_market  # seller receives premium
+                    # --- Probability of Profit (POP) Calculation using Monte Carlo ---
+                    st.markdown("### Probability of Profit (POP)")
 
-    # Probability of profit = % of paths with payoff ≥ 0
-    pop = np.mean(payoffs >= 0) * 100
+                    if paths is not None:
+                        terminal_prices = paths[-1]  # last timestep of all simulated paths
 
-    st.write(f"Estimated Probability of Profit: **{pop:.2f}%**")
+                        # Calculate payoff at expiry
+                        if option_type == "call":
+                            payoffs = np.maximum(terminal_prices - strike_price, 0)
+                        else:
+                            payoffs = np.maximum(strike_price - terminal_prices, 0)
 
-    st.caption(
-        "POP estimates the chance of ending in profit at expiry based on simulated price paths. "
-        "Use it with caution — it assumes current volatility and drift stay constant."
-    )
-else:
-    st.warning("Monte Carlo paths not available for POP calculation.")
+                        # Adjust for position (sell = negative P/L)
+                        if position_type == "sell":
+                            payoffs = -payoffs
 
-    # --- Greeks Recap (Dynamic) ---
-    st.markdown("### Meaning Of Greeks")
-    st.write(
-        f"**Delta ({greeks['Delta']:.2f})**: Change in option price per $1 move in underlying.\n"
-        f"**Gamma ({greeks['Gamma']:.4f})**: Rate of change of Delta — higher means more rebalancing needed.\n"
-        f"**Vega ({greeks['Vega']:.2f})**: Sensitivity to volatility changes (positive = gains with rising vol).\n"
-        f"**Theta ({greeks['Theta']:.2f})**: Time decay (negative = loses value as time passes).\n"
-        f"**Rho ({greeks['Rho']:.2f})**: Sensitivity to interest rate changes."
-    )
+                        # Subtract/add mid_market premium
+                        if not np.isnan(mid_market):
+                            if position_type == "buy":
+                                payoffs -= mid_market
+                            else:
+                                payoffs += mid_market  # seller receives premium
 
-    # --- Dynamic Trading Insights based on Greeks ---
-    st.markdown("### Trading Insights")
+                        # Probability of profit = % of paths with payoff ≥ 0
+                        pop = np.mean(payoffs >= 0) * 100
 
-    insights = []
-    # Gamma assessment
-    if abs(greeks['Gamma']) > 0.02:
-        insights.append("**High Gamma:** Expect large Delta swings — risky for naked positions, hedge actively.")
-    else:
-        insights.append("**Moderate Gamma:** Delta shifts are stable — less urgent rebalancing needed.")
+                        st.write(f"Estimated Probability of Profit: **{pop:.2f}%**")
 
-    # Theta assessment
-    if greeks['Theta'] < -0.5:
-        insights.append("**High Negative Theta:** Time decay will erode value fast — favor short premium strategies.")
-    else:
-        insights.append("**Mild Theta:** Less time decay risk — suitable for holding longer.")
+                        st.caption(
+                            "POP estimates the chance of ending in profit at expiry based on simulated price paths. "
+                            "Assumes volatility and drift remain constant over the period."
+                        )
 
-    # Vega assessment
-    if greeks['Vega'] > 0.5:
-        insights.append("**High Vega:** Benefits from volatility spikes (e.g., earnings events).")
-    elif greeks['Vega'] < -0.5:
-        insights.append("**Negative Vega:** Loses value when volatility rises — risky in turbulent markets.")
+                        # --- Histogram of terminal prices ---
+                        st.markdown("#### Terminal Price Distribution (Monte Carlo)")
+                        hist_fig = go.Figure()
 
-    st.info("\n".join(insights))
+                        hist_fig.add_trace(go.Histogram(
+                            x=terminal_prices,
+                            nbinsx=50,
+                            name="Terminal Prices",
+                            marker_color="rgba(0, 100, 250, 0.6)"
+                        ))
 
-    # --- Strategy Suggestion ---
-    st.markdown("### Strategy Suggestion")
+                        # Mark strike price
+                        hist_fig.add_vline(
+                            x=strike_price, line_dash="dash", line_color="red", annotation_text="Strike"
+                        )
 
-    strategy = ""
-    # Long Call / Long Put
-    if position_type == "buy" and option_type == "call":
-        if greeks['Theta'] < -0.5:
-            strategy = "Consider a **bull call spread** to reduce time decay risk."
-        elif greeks['Vega'] > 0.5:
-            strategy = "Long call suits **volatility breakout trades**; hedge if volatility drops."
-        else:
-            strategy = "Simple long call works — watch Delta for scaling."
-    elif position_type == "buy" and option_type == "put":
-        if greeks['Gamma'] > 0.02:
-            strategy = "Protective put for hedging; high Gamma means strong downside protection near strike."
-        else:
-            strategy = "Consider **bear put spread** to reduce premium cost."
+                        # Mark breakeven if available
+                        if breakeven:
+                            hist_fig.add_vline(
+                                x=breakeven, line_dash="dot", line_color="orange", annotation_text="Breakeven"
+                            )
 
-    # Short Call / Short Put
-    elif position_type == "sell" and option_type == "call":
-        if greeks['Theta'] > 0:
-            strategy = "Covered call is ideal — collect premium and benefit from Theta decay."
-        else:
-            strategy = "Naked call — high risk. Ensure adequate margin and hedge Delta."
-    elif position_type == "sell" and option_type == "put":
-        if greeks['Theta'] > 0:
-            strategy = "Cash-secured put can generate income — be ready to buy stock if assigned."
-        else:
-            strategy = "Avoid naked puts in volatile conditions — Vega exposure is high."
+                        hist_fig.update_layout(
+                            title="Distribution of Simulated Terminal Prices",
+                            xaxis_title="Terminal Price",
+                            yaxis_title="Frequency"
+                        )
 
-    st.success(strategy)
+                        st.plotly_chart(hist_fig, use_container_width=True)
 
-    st.markdown("---")
-    st.caption(
-        "Tip: Strategies adapt based on your risk tolerance. Combine mispricing signals, Greeks, and payoff visualization "
-        "to decide between directional plays (long calls/puts) or income strategies (covered calls, cash-secured puts)."
-    )
+                    else:
+                        st.warning("Monte Carlo paths not available for POP calculation.")
+
+                    # --- Greeks Recap (Dynamic) ---
+                    st.markdown("### Meaning Of Greeks")
+                    st.write(
+                        f"**Delta ({greeks['Delta']:.2f})**: Change in option price per $1 move in underlying.\n"
+                        f"**Gamma ({greeks['Gamma']:.4f})**: Rate of change of Delta — higher means more rebalancing needed.\n"
+                        f"**Vega ({greeks['Vega']:.2f})**: Sensitivity to volatility changes (positive = gains with rising vol).\n"
+                        f"**Theta ({greeks['Theta']:.2f})**: Time decay (negative = loses value as time passes).\n"
+                        f"**Rho ({greeks['Rho']:.2f})**: Sensitivity to interest rate changes."
+                    )
+
+                    # --- Dynamic Trading Insights based on Greeks ---
+                    st.markdown("### Trading Insights")
+
+                    insights = []
+                    # Gamma assessment
+                    if abs(greeks['Gamma']) > 0.02:
+                        insights.append("**High Gamma:** Expect large Delta swings — risky for naked positions, hedge actively.")
+                    else:
+                        insights.append("**Moderate Gamma:** Delta shifts are stable — less urgent rebalancing needed.")
+
+                    # Theta assessment
+                    if greeks['Theta'] < -0.5:
+                        insights.append("**High Negative Theta:** Time decay will erode value fast — favor short premium strategies.")
+                    else:
+                        insights.append("**Mild Theta:** Less time decay risk — suitable for holding longer.")
+
+                    # Vega assessment
+                    if greeks['Vega'] > 0.5:
+                        insights.append("**High Vega:** Benefits from volatility spikes (e.g., earnings events).")
+                    elif greeks['Vega'] < -0.5:
+                        insights.append("**Negative Vega:** Loses value when volatility rises — risky in turbulent markets.")
+
+                    st.info("\n".join(insights))
+
+                    # --- Strategy Suggestion ---
+                    st.markdown("### Strategy Suggestion")
+
+                    strategy = ""
+                    # Long Call / Long Put
+                    if position_type == "buy" and option_type == "call":
+                        if greeks['Theta'] < -0.5:
+                            strategy = "Consider a **bull call spread** to reduce time decay risk."
+                        elif greeks['Vega'] > 0.5:
+                            strategy = "Long call suits **volatility breakout trades**; hedge if volatility drops."
+                        else:
+                            strategy = "Simple long call works — watch Delta for scaling."
+                    elif position_type == "buy" and option_type == "put":
+                        if greeks['Gamma'] > 0.02:
+                            strategy = "Protective put for hedging; high Gamma means strong downside protection near strike."
+                        else:
+                            strategy = "Consider **bear put spread** to reduce premium cost."
+
+                    # Short Call / Short Put
+                    elif position_type == "sell" and option_type == "call":
+                        if greeks['Theta'] > 0:
+                            strategy = "Covered call is ideal — collect premium and benefit from Theta decay."
+                        else:
+                            strategy = "Naked call — high risk. Ensure adequate margin and hedge Delta."
+                    elif position_type == "sell" and option_type == "put":
+                        if greeks['Theta'] > 0:
+                            strategy = "Cash-secured put can generate income — be ready to buy stock if assigned."
+                        else:
+                            strategy = "Avoid naked puts in volatile conditions — Vega exposure is high."
+
+                    st.success(strategy)
+
+                    st.markdown("---")
+                    st.caption(
+                        "Tip: Strategies adapt based on your risk tolerance. Combine mispricing signals, Greeks, and payoff visualization "
+                        "to decide between directional plays (long calls/puts) or income strategies (covered calls, cash-secured puts)."
+                    )
+
